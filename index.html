@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sobek Spread Visualizer</title>
+  <style>
+    :root {
+      --bg: #0b1117;
+      --text: #e7f6ff;
+      --muted: #94a7b8;
+      --cyan: #00ffff;
+      --green: #39ff14;
+      --red: #8c1414;
+      --orange: #ff8c00;
+      --purple: #b46cff;
+      --border: rgba(255,255,255,0.08);
+      --shadow: 0 8px 24px rgba(0,0,0,0.22);
+      --radius: 16px;
+      --disabled: rgba(255,255,255,0.28);
+      --disabled-bg: rgba(255,255,255,0.04);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Inter, system-ui, Arial, sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(0,255,255,0.08), transparent 30%),
+        linear-gradient(180deg, #081018 0%, #0b1117 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .wrap {
+      max-width: 1520px;
+      margin: 0 auto;
+      padding: 10px 12px 12px;
+    }
+
+    .header {
+      margin-bottom: 8px;
+    }
+
+    .title {
+      font-size: clamp(1.25rem, 1.8vw, 1.9rem);
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      margin: 0;
+      line-height: 1.1;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(320px, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: stretch;
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 12px 14px;
+      min-height: 108px;
+    }
+
+    .card-title {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 800;
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .dual-toggle-wrap {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .toggle-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toggle-group-title {
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: var(--muted);
+      line-height: 1;
+    }
+
+    .toggle-shell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+      flex-wrap: nowrap;
+    }
+
+    .toggle-label {
+      font-weight: 800;
+      color: var(--muted);
+      transition: color 0.2s ease, text-shadow 0.2s ease;
+      white-space: nowrap;
+      cursor: pointer;
+      font-size: 0.92rem;
+      line-height: 1;
+    }
+
+    .toggle-label.active {
+      color: var(--text);
+      text-shadow: 0 0 12px rgba(0,255,255,0.3);
+    }
+
+    .switch {
+      position: relative;
+      width: 70px;
+      height: 32px;
+      background: #0b141d;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      cursor: pointer;
+      flex: 0 0 auto;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
+
+    .switch::before {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: linear-gradient(180deg, #67ffff, #00d6d6);
+      box-shadow: 0 0 12px rgba(0,255,255,0.42);
+      transition: transform 0.22s ease;
+    }
+
+    .switch.normal::before,
+    .switch.off::before {
+      transform: translateX(38px);
+    }
+
+    .slider-block.disabled .card-title,
+    .slider-block.disabled .range-meta {
+      color: var(--disabled);
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+      min-height: 28px;
+    }
+
+    .slider-label {
+      font-weight: 800;
+      font-size: 0.92rem;
+      line-height: 1.1;
+    }
+
+    .value-badge {
+      color: var(--text);
+      background: rgba(0,255,255,0.08);
+      border: 1px solid rgba(0,255,255,0.16);
+      border-radius: 999px;
+      padding: 5px 11px;
+      font-weight: 800;
+      min-width: 88px;
+      text-align: center;
+      font-size: 0.9rem;
+      line-height: 1;
+    }
+
+    .value-badge.disabled {
+      color: var(--disabled);
+      background: var(--disabled-bg);
+      border-color: rgba(255,255,255,0.08);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: #00e5ff;
+      cursor: pointer;
+      margin: 2px 0 0;
+    }
+
+    input[type="range"]:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      filter: grayscale(1);
+    }
+
+    .range-meta {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1;
+    }
+
+    .canvas-card {
+      padding: 10px;
+    }
+
+    canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      background:
+        radial-gradient(circle at center, rgba(0,255,255,0.04), transparent 45%),
+        rgba(255,255,255,0.01);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .dot.green { background: var(--green); }
+    .dot.red { background: var(--red); }
+    .dot.orange { background: var(--orange); }
+    .dot.cyan { background: var(--cyan); }
+    .dot.purple { background: var(--purple); }
+
+    @media (max-width: 860px) {
+      .controls {
+        grid-template-columns: 1fr;
+      }
+
+      .dual-toggle-wrap {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <h1 class="title">Sobek Spread Visualizer</h1>
+    </div>
+
+    <div class="controls">
+      <div class="card">
+        <div class="dual-toggle-wrap">
+          <div class="toggle-group">
+            <div class="toggle-group-title">Weapon</div>
+            <div class="toggle-shell">
+              <span id="labelKuva" class="toggle-label active">Kuva Sobek</span>
+              <button id="weaponToggle" class="switch" aria-label="Toggle weapon mode"></button>
+              <span id="labelNormal" class="toggle-label">Normal Sobek</span>
+            </div>
+          </div>
+
+          <div class="toggle-group">
+            <div class="toggle-group-title">Riven</div>
+            <div class="toggle-shell">
+              <span id="labelRivenOn" class="toggle-label active">Riven</span>
+              <button id="rivenToggle" class="switch" aria-label="Toggle riven mode"></button>
+              <span id="labelRivenOff" class="toggle-label">No Riven</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="msBlock" class="card slider-block">
+        <div class="card-header">
+          <h2 class="card-title">Riven Multishot</h2>
+          <div id="msValue" class="value-badge">130.0%</div>
+        </div>
+        <input id="msSlider" type="range" min="80.8" max="130.4" step="0.1" value="130.0" />
+        <div class="range-meta">
+          <span id="msMinLabel">Min: 80.8%</span>
+          <span id="msMaxLabel">Max: 130.4%</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="slider-row">
+          <div class="slider-label">Target Distance</div>
+          <div id="distanceValue" class="value-badge">50m</div>
+        </div>
+        <input id="distanceSlider" type="range" min="1" max="100" step="1" value="50" />
+        <div class="range-meta">
+          <span>Min: 1m</span>
+          <span>Max: 100m</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="slider-row">
+          <div class="slider-label">Shots Per Second</div>
+          <div id="fireRateValue" class="value-badge">2/s</div>
+        </div>
+        <input id="fireRateSlider" type="range" min="1" max="8" step="1" value="2" />
+        <div class="range-meta">
+          <span>Min: 1/s</span>
+          <span>Max: 8/s</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card canvas-card">
+      <canvas id="spreadCanvas" width="1200" height="640"></canvas>
+
+      <div class="legend">
+        <div class="legend-item"><span class="dot cyan"></span> spread circles / spokes</div>
+        <div class="legend-item"><span class="dot green"></span> newest shot group</div>
+        <div class="legend-item"><span class="dot orange"></span> previous shot group</div>
+        <div class="legend-item"><span class="dot red"></span> older shot groups</div>
+        <div class="legend-item"><span class="dot purple"></span> drone</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const BASE_HALF_ANGLE_DEG = 20.4;
+    const VICIOUS_PER_RANK = 0.1;
+    const BASE_PELLETS = 5;
+    const FIXED_MS = 2.3 + 3.5;
+    const PANEL_LABELS = [
+      ["None", 0],
+      ["R1", 1],
+      ["R2", 2],
+      ["R3", 3],
+      ["R4", 4],
+      ["R5", 5],
+    ];
+
+    const WEAPON_RANGES = {
+      kuva:   { label: "Kuva Sobek",   msMin: 80.8,  msMax: 130.4, msDefault: 130.0 },
+      normal: { label: "Normal Sobek", msMin: 134.3, msMax: 216.7, msDefault: 160.0 },
+    };
+
+    const canvas = document.getElementById("spreadCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const weaponToggle = document.getElementById("weaponToggle");
+    const labelKuva = document.getElementById("labelKuva");
+    const labelNormal = document.getElementById("labelNormal");
+
+    const rivenToggle = document.getElementById("rivenToggle");
+    const labelRivenOn = document.getElementById("labelRivenOn");
+    const labelRivenOff = document.getElementById("labelRivenOff");
+
+    const msBlock = document.getElementById("msBlock");
+    const msSlider = document.getElementById("msSlider");
+    const distanceSlider = document.getElementById("distanceSlider");
+    const fireRateSlider = document.getElementById("fireRateSlider");
+
+    const msValue = document.getElementById("msValue");
+    const distanceValue = document.getElementById("distanceValue");
+    const fireRateValue = document.getElementById("fireRateValue");
+    const msMinLabel = document.getElementById("msMinLabel");
+    const msMaxLabel = document.getElementById("msMaxLabel");
+
+    let weaponMode = "kuva";
+    let rivenEnabled = true;
+    let panels = [];
+    let cycleStartTime = 0;
+    let lastFrameTime = 0;
+    let shotAccumulatorMs = 0;
+
+    const CYCLE_RESET_MS = 5500;
+    const MAX_VISIBLE_GROUPS = 10;
+    const STORED_GROUPS = 10;
+
+    const rivenMsMemory = {
+      kuva: WEAPON_RANGES.kuva.msDefault,
+      normal: WEAPON_RANGES.normal.msDefault,
+    };
+
+    function halfAngleDegForRank(rankSteps) {
+      return BASE_HALF_ANGLE_DEG * (1 + VICIOUS_PER_RANK * rankSteps);
+    }
+
+    function spreadRadiusM(distanceM, halfAngleDeg) {
+      return distanceM * Math.tan((halfAngleDeg * Math.PI) / 180);
+    }
+
+    function getRivenMsPercent() {
+      return rivenEnabled ? Number(msSlider.value) : 0;
+    }
+
+    function expectedPelletsPerShot(rivenMsPercent) {
+      const rivenMs = rivenMsPercent / 100;
+      return (1 + FIXED_MS + rivenMs) * BASE_PELLETS;
+    }
+
+    function spokesForExpected(expected) {
+      return Math.max(1, Math.ceil(expected));
+    }
+
+    function clamp(v, min, max) {
+      return Math.max(min, Math.min(max, v));
+    }
+
+    function rand(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    function sampleUniqueIndices(count, maxExclusive) {
+      const arr = Array.from({ length: maxExclusive }, (_, i) => i);
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr.slice(0, count);
+    }
+
+    function pelletCountFromExpected(expected) {
+      const whole = Math.floor(expected);
+      const frac = expected - whole;
+      return whole + (Math.random() < frac ? 1 : 0);
+    }
+
+    function getCurrentRange() {
+      return WEAPON_RANGES[weaponMode];
+    }
+
+    function getShotIntervalMs() {
+      const fireRate = Number(fireRateSlider.value);
+      return 1000 / fireRate;
+    }
+
+    function formatPercent(v) {
+      return `${Number(v).toFixed(1)}%`;
+    }
+
+    function syncWeaponUI() {
+      const isNormal = weaponMode === "normal";
+      weaponToggle.classList.toggle("normal", isNormal);
+      labelKuva.classList.toggle("active", !isNormal);
+      labelNormal.classList.toggle("active", isNormal);
+    }
+
+    function syncRivenUI() {
+      const noRiven = !rivenEnabled;
+      rivenToggle.classList.toggle("off", noRiven);
+      labelRivenOn.classList.toggle("active", rivenEnabled);
+      labelRivenOff.classList.toggle("active", noRiven);
+
+      msSlider.disabled = noRiven;
+      msBlock.classList.toggle("disabled", noRiven);
+      msValue.classList.toggle("disabled", noRiven);
+
+      if (noRiven) {
+        msValue.textContent = "Disabled";
+      } else {
+        msValue.textContent = formatPercent(msSlider.value);
+      }
+    }
+
+    function storeCurrentWeaponValue() {
+      rivenMsMemory[weaponMode] = Number(msSlider.value);
+    }
+
+    function applyWeaponRange(useRememberedValue = true) {
+      const range = getCurrentRange();
+
+      msSlider.min = range.msMin;
+      msSlider.max = range.msMax;
+      msSlider.step = 0.1;
+
+      let newValue;
+      if (useRememberedValue) {
+        newValue = clamp(rivenMsMemory[weaponMode], range.msMin, range.msMax);
+      } else {
+        newValue = clamp(range.msDefault, range.msMin, range.msMax);
+      }
+
+      msSlider.value = String(newValue);
+
+      msMinLabel.textContent = `Min: ${formatPercent(range.msMin)}`;
+      msMaxLabel.textContent = `Max: ${formatPercent(range.msMax)}`;
+
+      updateLabels();
+      rebuildPanels();
+    }
+
+    function updateLabels() {
+      if (rivenEnabled) {
+        msValue.textContent = formatPercent(msSlider.value);
+      } else {
+        msValue.textContent = "Disabled";
+      }
+
+      distanceValue.textContent = `${distanceSlider.value}m`;
+      fireRateValue.textContent = `${Number(fireRateSlider.value).toFixed(0)}/s`;
+    }
+
+    function buildPanelData() {
+      const W = canvas.width;
+      const H = canvas.height;
+
+      const cols = 3;
+      const rows = 2;
+      const panelW = W / cols;
+      const panelH = H / rows;
+
+      const distanceM = Number(distanceSlider.value);
+      const rivenMsPercent = getRivenMsPercent();
+      const expected = expectedPelletsPerShot(rivenMsPercent);
+      const spokes = spokesForExpected(expected);
+
+      const maxOuterM = spreadRadiusM(distanceM, halfAngleDegForRank(5));
+      const outerMaxPx = Math.min(panelW, panelH) * 0.34;
+      const pxPerM = maxOuterM > 0 ? outerMaxPx / maxOuterM : 0;
+
+      const innerM = spreadRadiusM(distanceM, BASE_HALF_ANGLE_DEG);
+      const innerPx = Math.round(innerM * pxPerM);
+
+      const droneRadiusM = 1.0;
+      const dronePx = clamp(Math.round(droneRadiusM * pxPerM), 3, 36);
+
+      const built = [];
+
+      PANEL_LABELS.forEach(([label, rankSteps], idx) => {
+        const col = idx % cols;
+        const row = Math.floor(idx / cols);
+
+        const cx = col * panelW + panelW / 2;
+        const cy = row * panelH + panelH / 2;
+
+        const outerM = spreadRadiusM(distanceM, halfAngleDegForRank(rankSteps));
+        const outerPx = Math.round(outerM * pxPerM);
+
+        let minR = innerPx * 0.33;
+        let maxR = Math.max(1, outerPx - dronePx);
+        if (minR > maxR) minR = maxR * 0.5;
+
+        const theta = rand(0, Math.PI * 2);
+        const rr = rand(minR, maxR);
+        const droneX = cx + Math.cos(theta) * rr;
+        const droneY = cy + Math.sin(theta) * rr;
+
+        built.push({
+          label,
+          rankSteps,
+          cx,
+          cy,
+          panelW,
+          panelH,
+          innerPx,
+          outerPx,
+          spokes,
+          droneX,
+          droneY,
+          dronePx,
+          shots: [],
+        });
+      });
+
+      return built;
+    }
+
+    function generateShotGroup(panel) {
+      const expected = expectedPelletsPerShot(getRivenMsPercent());
+      const pellets = Math.min(pelletCountFromExpected(expected), panel.spokes);
+      const angles = Array.from(
+        { length: panel.spokes },
+        (_, i) => (Math.PI * 2 * i) / panel.spokes
+      );
+      const chosen = sampleUniqueIndices(pellets, panel.spokes);
+
+      const dots = [];
+      for (const idx of chosen) {
+        const a = angles[idx];
+        const r = panel.outerPx > 0 ? rand(0, panel.outerPx) : 0;
+        dots.push({
+          x: panel.cx + Math.cos(a) * r,
+          y: panel.cy + Math.sin(a) * r,
+        });
+      }
+      return dots;
+    }
+
+    function rebuildPanels() {
+      panels = buildPanelData();
+      for (const panel of panels) {
+        panel.shots = [];
+      }
+
+      const now = performance.now();
+      cycleStartTime = now;
+      lastFrameTime = now;
+      shotAccumulatorMs = 0;
+
+      draw();
+    }
+
+    function drawPanel(panel) {
+      const { cx, cy, panelW, panelH, innerPx, outerPx, spokes } = panel;
+
+      ctx.fillStyle = "#e7f6ff";
+      ctx.font = "700 24px Inter, Arial, sans-serif";
+      ctx.fillText(panel.label, cx - panelW / 2 + 18, cy - panelH / 2 + 32);
+
+      for (let i = 0; i < spokes; i++) {
+        const a = (Math.PI * 2 * i) / spokes;
+        const len = Math.min(panelW, panelH) * 0.42;
+        const x = cx + Math.cos(a) * len;
+        const y = cy + Math.sin(a) * len;
+
+        ctx.strokeStyle = "rgba(0,255,255,0.18)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = "rgba(0,255,255,0.45)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, innerPx, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(0,255,255,1)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, outerPx, 0, Math.PI * 2);
+      ctx.stroke();
+
+      const count = Math.min(panel.shots.length, MAX_VISIBLE_GROUPS);
+
+      for (let g = 0; g < count; g++) {
+        const reversedIndex = count - 1 - g;
+        const shot = panel.shots[reversedIndex];
+
+        let color = "rgba(140,20,20,0.82)";
+        if (g === 0) color = "rgba(57,255,20,0.95)";
+        else if (g === 1) color = "rgba(255,140,0,0.92)";
+
+        ctx.fillStyle = color;
+        for (const p of shot) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      ctx.fillStyle = "rgba(180,108,255,1)";
+      ctx.beginPath();
+      ctx.arc(panel.droneX, panel.droneY, panel.dronePx, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawBackground() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const grad = ctx.createRadialGradient(
+        canvas.width / 2, canvas.height / 2, 10,
+        canvas.width / 2, canvas.height / 2, canvas.width * 0.55
+      );
+      grad.addColorStop(0, "rgba(0,255,255,0.05)");
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function draw() {
+      drawBackground();
+      for (const panel of panels) drawPanel(panel);
+    }
+
+    function tick(now) {
+      if (!lastFrameTime) {
+        lastFrameTime = now;
+      }
+
+      let delta = now - lastFrameTime;
+      lastFrameTime = now;
+
+      // prevent giant catch-up bursts after tab switches / hiccups
+      if (delta > 50) {
+        delta = 50;
+      }
+
+      if (now - cycleStartTime >= CYCLE_RESET_MS) {
+        for (const panel of panels) {
+          panel.shots.length = 0;
+        }
+        cycleStartTime = now;
+        shotAccumulatorMs = 0;
+      }
+
+      shotAccumulatorMs += delta;
+
+      const shotIntervalMs = getShotIntervalMs();
+
+      while (shotAccumulatorMs >= shotIntervalMs) {
+        for (const panel of panels) {
+          panel.shots.push(generateShotGroup(panel));
+          if (panel.shots.length > STORED_GROUPS) {
+            panel.shots.shift();
+          }
+        }
+        shotAccumulatorMs -= shotIntervalMs;
+      }
+
+      draw();
+      requestAnimationFrame(tick);
+    }
+
+    function setWeaponMode(newMode) {
+      if (newMode === weaponMode) return;
+      storeCurrentWeaponValue();
+      weaponMode = newMode;
+      syncWeaponUI();
+      applyWeaponRange(true);
+    }
+
+    weaponToggle.addEventListener("click", () => {
+      setWeaponMode(weaponMode === "kuva" ? "normal" : "kuva");
+    });
+
+    labelKuva.addEventListener("click", () => {
+      setWeaponMode("kuva");
+    });
+
+    labelNormal.addEventListener("click", () => {
+      setWeaponMode("normal");
+    });
+
+    rivenToggle.addEventListener("click", () => {
+      rivenEnabled = !rivenEnabled;
+      syncRivenUI();
+      updateLabels();
+      rebuildPanels();
+    });
+
+    labelRivenOn.addEventListener("click", () => {
+      rivenEnabled = true;
+      syncRivenUI();
+      updateLabels();
+      rebuildPanels();
+    });
+
+    labelRivenOff.addEventListener("click", () => {
+      rivenEnabled = false;
+      syncRivenUI();
+      updateLabels();
+      rebuildPanels();
+    });
+
+    msSlider.addEventListener("input", () => {
+      rivenMsMemory[weaponMode] = Number(msSlider.value);
+      updateLabels();
+      rebuildPanels();
+    });
+
+    distanceSlider.addEventListener("input", () => {
+      updateLabels();
+      rebuildPanels();
+    });
+
+    fireRateSlider.addEventListener("input", () => {
+      updateLabels();
+    });
+
+    syncWeaponUI();
+    syncRivenUI();
+    applyWeaponRange(false);
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Sobek Spread Visualizer</title>
+  <title>Vicious Spread Visualizer</title>
   <style>
     :root {
       --bg: #0b1117;
@@ -90,15 +90,18 @@
 
     .dual-toggle-wrap {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-      align-items: start;
+      grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(170px, 1fr));
+      gap: 18px;
+      align-items: stretch;
+      justify-content: space-between;
     }
 
     .toggle-group {
       display: flex;
       flex-direction: column;
       gap: 8px;
+      justify-content: center;
+      min-height: 84px;
     }
 
     .toggle-group-title {
@@ -108,12 +111,42 @@
       line-height: 1;
     }
 
+    .weapon-segmented {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .weapon-option {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: #0b141d;
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 9px 10px;
+      font-weight: 800;
+      font-size: 0.84rem;
+      line-height: 1.1;
+      cursor: pointer;
+      transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+      text-align: center;
+    }
+
+    .weapon-option.active {
+      color: var(--text);
+      background: rgba(0,255,255,0.08);
+      border-color: rgba(0,255,255,0.22);
+      box-shadow: 0 0 12px rgba(0,255,255,0.18);
+    }
+
     .toggle-shell {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       user-select: none;
       flex-wrap: nowrap;
+      justify-content: center;
+      width: 100%;
     }
 
     .toggle-label {
@@ -281,7 +314,7 @@
 <body>
   <div class="wrap">
     <div class="header">
-      <h1 class="title">Sobek Spread Visualizer</h1>
+      <h1 class="title">Vicious Spread Visualizer</h1>
     </div>
 
     <div class="controls">
@@ -289,10 +322,10 @@
         <div class="dual-toggle-wrap">
           <div class="toggle-group">
             <div class="toggle-group-title">Weapon</div>
-            <div class="toggle-shell">
-              <span id="labelKuva" class="toggle-label active">Kuva Sobek</span>
-              <button id="weaponToggle" class="switch" aria-label="Toggle weapon mode"></button>
-              <span id="labelNormal" class="toggle-label">Normal Sobek</span>
+            <div class="weapon-segmented" role="tablist" aria-label="Weapon mode">
+              <button id="labelKuva" class="weapon-option active" type="button">Kuva Sobek</button>
+              <button id="labelNormal" class="weapon-option" type="button">Normal Sobek</button>
+              <button id="labelBoar" class="weapon-option" type="button">Boar Prime</button>
             </div>
           </div>
 
@@ -302,6 +335,15 @@
               <span id="labelRivenOn" class="toggle-label active">Riven</span>
               <button id="rivenToggle" class="switch" aria-label="Toggle riven mode"></button>
               <span id="labelRivenOff" class="toggle-label">No Riven</span>
+            </div>
+          </div>
+
+          <div class="toggle-group">
+            <div class="toggle-group-title">Overcharge</div>
+            <div class="toggle-shell">
+              <span id="labelOverchargeOn" class="toggle-label active">On</span>
+              <button id="overchargeToggle" class="switch" aria-label="Toggle overcharge multishot bonus"></button>
+              <span id="labelOverchargeOff" class="toggle-label">Off</span>
             </div>
           </div>
         </div>
@@ -358,10 +400,10 @@
   </div>
 
   <script>
-    const BASE_HALF_ANGLE_DEG = 20.4;
+    const SOBEK_BASE_HALF_ANGLE_DEG = 20.4;
     const VICIOUS_PER_RANK = 0.1;
-    const BASE_PELLETS = 5;
-    const FIXED_MS = 2.3 + 3.5;
+    const BASE_FIXED_MS = 2.3;
+    const OVERCHARGE_MS = 3.5;
     const PANEL_LABELS = [
       ["None", 0],
       ["R1", 1],
@@ -372,20 +414,25 @@
     ];
 
     const WEAPON_RANGES = {
-      kuva:   { label: "Kuva Sobek",   msMin: 80.8,  msMax: 130.4, msDefault: 130.0 },
-      normal: { label: "Normal Sobek", msMin: 134.3, msMax: 216.7, msDefault: 160.0 },
+      kuva:   { label: "Kuva Sobek",         msMin: 80.8,  msMax: 130.4, msDefault: 130.0, baseHalfAngleDeg: SOBEK_BASE_HALF_ANGLE_DEG, basePellets: 5 },
+      normal: { label: "Normal Sobek",       msMin: 134.3, msMax: 216.7, msDefault: 160.0, baseHalfAngleDeg: SOBEK_BASE_HALF_ANGLE_DEG, basePellets: 5 },
+      boar:   { label: "Boar Prime", msMin: 135.3, msMax: 218.3, msDefault: 160.0, baseHalfAngleDeg: SOBEK_BASE_HALF_ANGLE_DEG * (20 / 11), basePellets: 8 },
     };
 
     const canvas = document.getElementById("spreadCanvas");
     const ctx = canvas.getContext("2d");
 
-    const weaponToggle = document.getElementById("weaponToggle");
     const labelKuva = document.getElementById("labelKuva");
     const labelNormal = document.getElementById("labelNormal");
+    const labelBoar = document.getElementById("labelBoar");
 
     const rivenToggle = document.getElementById("rivenToggle");
     const labelRivenOn = document.getElementById("labelRivenOn");
     const labelRivenOff = document.getElementById("labelRivenOff");
+
+    const overchargeToggle = document.getElementById("overchargeToggle");
+    const labelOverchargeOn = document.getElementById("labelOverchargeOn");
+    const labelOverchargeOff = document.getElementById("labelOverchargeOff");
 
     const msBlock = document.getElementById("msBlock");
     const msSlider = document.getElementById("msSlider");
@@ -400,6 +447,7 @@
 
     let weaponMode = "kuva";
     let rivenEnabled = true;
+    let overchargeEnabled = true;
     let panels = [];
     let cycleStartTime = 0;
     let lastFrameTime = 0;
@@ -412,10 +460,11 @@
     const rivenMsMemory = {
       kuva: WEAPON_RANGES.kuva.msDefault,
       normal: WEAPON_RANGES.normal.msDefault,
+      boar: WEAPON_RANGES.boar.msDefault,
     };
 
     function halfAngleDegForRank(rankSteps) {
-      return BASE_HALF_ANGLE_DEG * (1 + VICIOUS_PER_RANK * rankSteps);
+      return getCurrentRange().baseHalfAngleDeg * (1 + VICIOUS_PER_RANK * rankSteps);
     }
 
     function spreadRadiusM(distanceM, halfAngleDeg) {
@@ -428,7 +477,8 @@
 
     function expectedPelletsPerShot(rivenMsPercent) {
       const rivenMs = rivenMsPercent / 100;
-      return (1 + FIXED_MS + rivenMs) * BASE_PELLETS;
+      const fixedMs = BASE_FIXED_MS + (overchargeEnabled ? OVERCHARGE_MS : 0);
+      return (1 + fixedMs + rivenMs) * getCurrentRange().basePellets;
     }
 
     function spokesForExpected(expected) {
@@ -472,10 +522,9 @@
     }
 
     function syncWeaponUI() {
-      const isNormal = weaponMode === "normal";
-      weaponToggle.classList.toggle("normal", isNormal);
-      labelKuva.classList.toggle("active", !isNormal);
-      labelNormal.classList.toggle("active", isNormal);
+      labelKuva.classList.toggle("active", weaponMode === "kuva");
+      labelNormal.classList.toggle("active", weaponMode === "normal");
+      labelBoar.classList.toggle("active", weaponMode === "boar");
     }
 
     function syncRivenUI() {
@@ -493,6 +542,13 @@
       } else {
         msValue.textContent = formatPercent(msSlider.value);
       }
+    }
+
+    function syncOverchargeUI() {
+      const off = !overchargeEnabled;
+      overchargeToggle.classList.toggle("off", off);
+      labelOverchargeOn.classList.toggle("active", overchargeEnabled);
+      labelOverchargeOff.classList.toggle("active", off);
     }
 
     function storeCurrentWeaponValue() {
@@ -551,7 +607,7 @@
       const outerMaxPx = Math.min(panelW, panelH) * 0.34;
       const pxPerM = maxOuterM > 0 ? outerMaxPx / maxOuterM : 0;
 
-      const innerM = spreadRadiusM(distanceM, BASE_HALF_ANGLE_DEG);
+      const innerM = spreadRadiusM(distanceM, getCurrentRange().baseHalfAngleDeg);
       const innerPx = Math.round(innerM * pxPerM);
 
       const droneRadiusM = 1.0;
@@ -756,16 +812,16 @@
       applyWeaponRange(true);
     }
 
-    weaponToggle.addEventListener("click", () => {
-      setWeaponMode(weaponMode === "kuva" ? "normal" : "kuva");
-    });
-
     labelKuva.addEventListener("click", () => {
       setWeaponMode("kuva");
     });
 
     labelNormal.addEventListener("click", () => {
       setWeaponMode("normal");
+    });
+
+    labelBoar.addEventListener("click", () => {
+      setWeaponMode("boar");
     });
 
     rivenToggle.addEventListener("click", () => {
@@ -789,6 +845,24 @@
       rebuildPanels();
     });
 
+    overchargeToggle.addEventListener("click", () => {
+      overchargeEnabled = !overchargeEnabled;
+      syncOverchargeUI();
+      rebuildPanels();
+    });
+
+    labelOverchargeOn.addEventListener("click", () => {
+      overchargeEnabled = true;
+      syncOverchargeUI();
+      rebuildPanels();
+    });
+
+    labelOverchargeOff.addEventListener("click", () => {
+      overchargeEnabled = false;
+      syncOverchargeUI();
+      rebuildPanels();
+    });
+
     msSlider.addEventListener("input", () => {
       rivenMsMemory[weaponMode] = Number(msSlider.value);
       updateLabels();
@@ -806,6 +880,7 @@
 
     syncWeaponUI();
     syncRivenUI();
+    syncOverchargeUI();
     applyWeaponRange(false);
     requestAnimationFrame(tick);
   </script>
